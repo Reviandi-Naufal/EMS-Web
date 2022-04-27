@@ -7,6 +7,7 @@ Created on Mon Apr 25 11:41:03 2022
 
 import requests
 import pandas as pd
+import sqlalchemy
 
 ## Initialize All Urls
 baseURL = "http://213.190.4.40/iems/iems-api/index.php/public/devices"
@@ -24,13 +25,30 @@ for deviceToken in devicesToken:
       "pull": baseURL + "/pull?device_token=" + deviceToken
   }
 
-  ## Do request
-  response = requests.get(urls["info"]) ## U will get response as a string
-  result = response.json() ## We parse the string response to json
+  ## Do Request
+  response = requests.get(urls["info"]) # U will get response as a string
+  result = response.json() # We parse the string response to json
 
   dataset = pd.json_normalize(result["data"]) # Read data object from result
   device_id.append(dataset['id'][0])
-  device_name.append(dataset['device_name'][0])
-  device_status.append(dataset['device_status'][0])
+  #device_name.append(dataset['device_name'][0])
+  if dataset['device_status'][0] == 'active':
+    device_status.append(1)
+  elif dataset['device_status'][0] == 'deactive':
+    device_status.append(0)
 
-df = pd.DataFrame({'id': device_id, 'device_name' : device_name, 'status' : device_status})
+## Convert Every Data Pulled From Server Into A Dataframe 
+df = pd.DataFrame({'device_id': device_id, 
+                   #'device_name' : device_name, 
+                   'device_status' : device_status})
+
+## Initialize Mysql Connector Engine and Send The Data to Mysql Database
+engine = sqlalchemy.create_engine('mysql+mysqldb://root:MilitenSire360@localhost:3306/appliance_db', pool_pre_ping=True)
+df.to_sql(
+    name='device_status', # database table name
+    con=engine,
+    if_exists='replace',
+    index=False
+)
+
+display(df)
